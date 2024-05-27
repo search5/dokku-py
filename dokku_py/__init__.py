@@ -1,93 +1,182 @@
-import argparse
+import random
+import sys
+import shlex
 import os
+import re
+from subprocess import run, DEVNULL, PIPE
+
+dokku_env = {}
+
+
+def fn_get_remote():
+    result = run(shlex.split('git config dokku.remote'),
+                 stdout=PIPE, stderr=DEVNULL)
+    return result.stdout.decode('utf-8') or 'dokku'
+
+
+def git_rev_parse_result(dokku_git_remote):
+    git_rev_parse = run(["git", "rev-parse", "--git-dir"], stdout=DEVNULL, stderr=DEVNULL)
+    if os.path.exists(".git") or git_rev_parse.returncode == 0:
+        pattern = re.compile(
+            rf"^{re.escape(dokku_git_remote)}\s",
+            re.IGNORECASE|re.MULTILINE)
+        git_remote_cmd = run(["git", "remote", "-v"],
+                             stderr=DEVNULL,
+                             stdout=PIPE)
+        cmd_stdout = git_remote_cmd.stdout.decode('utf-8')
+
+        return (cmd_stdout if pattern.search(cmd_stdout) else '',
+                git_remote_cmd.returncode)
+    else:
+        return '', ''
+
+
+def fn_dokku_host(dokku_git_remote, dokku_host):
+    if not dokku_host:
+        cmd_stdout, ret_code = git_rev_parse_result(dokku_git_remote)
+        if cmd_stdout:
+            git_dokku_rev = cmd_stdout.splitlines()[0]
+            git_dokku_host = git_dokku_rev.split(" ")[0].split("@")[1]
+            dokku_host = git_dokku_host.split(":")[0] if ret_code == 0 else ''
+
+    if not dokku_host:
+        return ''
+
+    return dokku_host
+
+
+def fn_client_help_msg():
+    print("=====> Configure the DOKKU_HOST environment variable or run dokku from a repository with a git remote named dokku")
+    print("       i.e. git remote add dokku dokku@<dokku-host>:<app-name>")
+    sys.exit(20)  # exit with specific status. only used in units tests for now
+
+
+def fn_random_name():
+    MOVES = "ABLE ABNORMA AGAIN AIREXPL ANG ANGER ASAIL ATTACK AURORA AWL BAN BAND BARE BEAT BEATED BELLY BIND BITE BLOC BLOOD BODY BOOK BREATH BUMP CAST CHAM CLAMP CLAP CLAW CLEAR CLI CLIP CLOUD CONTRO CONVY COOLHIT CRASH CRY CUT DESCRI D-FIGHT DIG DITCH DIV DOZ DRE DUL DU-PIN DYE EARTH EDU EG-BOMB EGG ELEGY ELE-HIT EMBODY EMPLI ENGL ERUPT EVENS EXPLOR EYES FALL FAST F-CAR F-DANCE FEARS F-FIGHT FIGHT FIR FIRE FIREHIT FLAME FLAP FLASH FLEW FORCE FRA FREEZE FROG G-BIRD GENKISS GIFT G-KISS G-MOUSE GRADE GROW HAMMER HARD HAT HATE H-BOMB HELL-R HEMP HINT HIT HU HUNT HYPNOSI INHA IRO IRONBAR IR-WING J-GUN KEE KICK KNIF KNIFE KNOCK LEVEL LIGH LIGHHIT LIGHT LIVE L-WALL MAD MAJUS MEL MELO MESS MILK MIMI MISS MIXING MOVE MUD NI-BED NOISY NOONLI NULL N-WAVE PAT PEACE PIN PLAN PLANE POIS POL POWDE POWE POWER PRIZE PROTECT PROUD RAGE RECOR REFLAC REFREC REGR RELIV RENEW R-FIGHT RING RKICK ROCK ROUND RUS RUSH SAND SAW SCISSOR SCRA SCRIPT SEEN SERVER SHADOW SHELL SHINE SHO SIGHT SIN SMALL SMELT SMOK SNAKE SNO SNOW SOU SO-WAVE SPAR SPEC SPID S-PIN SPRA STAM STARE STEA STONE STORM STRU STRUG STUDEN SUBS SUCID SUN-LIG SUNRIS SUPLY S-WAVE TAILS TANGL TASTE TELLI THANK TONKICK TOOTH TORL TRAIN TRIKICK TUNGE VOLT WA-GUN WATCH WAVE W-BOMB WFALL WFING WHIP WHIRL WIND WOLF WOOD WOR YUJA".split(" ")
+    NAMES = "SEED GRASS FLOWE SHAD CABR SNAKE GOLD COW GUIKI PEDAL DELAN B-FLY BIDE KEYU FORK LAP PIGE PIJIA CAML LAT BIRD BABOO VIV ABOKE PIKAQ RYE SAN BREAD LIDEL LIDE PIP PIKEX ROK JUGEN PUD BUDE ZHIB GELU GRAS FLOW LAFUL ATH BALA CORN MOLUF DESP DAKED MIMI BOLUX KODA GELUD MONK SUMOY GEDI WENDI NILEM NILE NILEC KEZI YONGL HUDE WANLI GELI GUAIL MADAQ WUCI WUCI MUJEF JELLY SICIB GELU NELUO BOLI JIALE YED YEDE CLO SCARE AOCO DEDE DEDEI BAWU JIUG BADEB BADEB HOLE BALUX GES FANT QUAR YIHE SWAB SLIPP CLU DEPOS BILIY YUANO SOME NO YELA EMPT ZECUN XIAHE BOLEL DEJI MACID XIHON XITO LUCK MENJI GELU DECI XIDE DASAJ DONGN RICUL MINXI BALIY ZENDA LUZEL HELE5 0FENB KAIL JIAND CARP JINDE LAPU MUDE YIFU LINLI SANDI HUSI JINC OUMU OUMUX CAP KUIZA PUD TIAO FRMAN CLAU SPARK DRAGO BOLIU GUAIL MIYOU MIY QIAOK BEIL MUKEI RIDED MADAM BAGEP CROC ALIGE OUDAL OUD DADA HEHE YEDEA NUXI NUXIN ROUY ALIAD STICK QIANG LAAND PIQI PI PUPI DEKE DEKEJ NADI NADIO MALI PEA ELECT FLOWE MAL MALI HUSHU NILEE YUZI POPOZ DUZI HEBA XIAN SHAN YEYEA WUY LUO KEFE HULA CROW YADEH MOW ANNAN SUONI KYLI HULU HUDEL YEHE GULAE YEHE BLU GELAN BOAT NIP POIT HELAK XINL BEAR LINB MAGEH MAGEJ WULI YIDE RIVE FISH AOGU DELIE MANTE KONMU DELU HELU HUAN HUMA DONGF JINCA HEDE DEFU LIBY JIAPA MEJI HELE BUHU MILK HABI THUN GARD DON YANGQ SANAQ BANQ LUJ PHIX SIEI EGG".split(" ")
+
+    WORD1 = MOVES[random.randint(0, len(MOVES) - 1)]
+    WORD2 = MOVES[random.randint(0, len(MOVES) - 1)]
+    WORD3 = MOVES[random.randint(0, len(NAMES) - 1)]
+
+    return f"{WORD1}-{WORD2}-{WORD3}".lower()
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog='dokku',
-        description='Dokku Unofficial Python Client')
-    parser.add_argument()
+    dokku_env['DOKKU_TRACE'] = os.getenv('DOKKU_TRACE', 0)
+    dokku_env['DOKKU_PORT'] = os.getenv('DOKKU_PORT', 22)
+    dokku_env['DOKKU_HOST'] = os.getenv('DOKKU_HOST', '')
 
-    cli_parse = parser.parse_args()
+    app = ''
+    dokku_git_remote = fn_get_remote()
+    dokku_remote_host = ''
 
-    #   declare CMD="$1" APP_ARG="$2"
-    #   local APP="" DOKKU_GIT_REMOTE="$(fn-get-remote)" DOKKU_REMOTE_HOST=""
-    #   local cmd_set=false next_index=1 skip=false args=("$@")
-    #
-    #   for arg in "$@"; do
-    #     if [[ "$skip" == "true" ]]; then
-    #       next_index=$((next_index + 1))
-    #       skip=false
-    #       continue
-    #     fi
-    #     is_flag=false
-    #
-    #     [[ "$arg" =~ ^--.* ]] && is_flag=true
-    #
-    #     if [[ "$arg" == "--app" ]]; then
-    #       APP=${args[$next_index]}
-    #       skip=true
-    #       shift 2
-    #     elif [[ "$arg" == "--remote" ]]; then
-    #       DOKKU_GIT_REMOTE=${args[$next_index]}
-    #       skip=true
-    #       shift 2
-    #     elif [[ "$arg" =~ ^--.* ]]; then
-    #       [[ "$cmd_set" == "true" ]] && [[ "$is_flag" == "false" ]] && APP_ARG="$arg" && break
-    #       [[ "$arg" == "--trace" ]] && export DOKKU_TRACE=1 && set -x
-    #     else
-    #       if [[ "$cmd_set" == "true" ]] && [[ "$is_flag" == "false" ]]; then
-    #         APP_ARG="$arg"
-    #         break
-    #       else
-    #         CMD="$arg"
-    #         cmd_set=true
-    #       fi
-    #     fi
-    #     next_index=$((next_index + 1))
-    #   done
-    #
-    #   DOKKU_REMOTE_HOST="$(fn-dokku-host "$DOKKU_GIT_REMOTE" "$DOKKU_HOST")"
-    #   if [[ -z "$DOKKU_REMOTE_HOST" ]] && [[ "$CMD" != remote ]] && [[ "$CMD" != remote:* ]]; then
-    #     fn-client-help-msg
-    #   fi
-    #
-    #   if [[ -z "$APP" ]]; then
-    #     if [[ -d .git ]] || git rev-parse --git-dir &>/dev/null; then
-    #       set +e
-    #       APP=$(git remote -v 2>/dev/null | grep -Ei "^${DOKKU_GIT_REMOTE}\s" | grep -Ei "dokku@$DOKKU_REMOTE_HOST" | head -n 1 | cut -f2 -d'@' | cut -f1 -d' ' | cut -f2 -d':' 2>/dev/null)
-    #       set -e
-    #     else
-    #       echo " !     This is not a git repository" 1>&2
-    #     fi
-    #   fi
-    #
+    sys_argv = sys.argv[1:]
+
+    cmd = sys.argv[1] if len(sys_argv) > 0 else ''
+    app_arg = sys.argv[2] if len(sys_argv) > 1 else ''
+
+    cmd_set = False
+    next_index = 1
+    skip = False
+    args = sys_argv
+
+    for arg in args:
+        if skip:
+            next_index += 1
+            skip = False
+            continue
+        is_flag = False
+
+        if arg.startswith('--'):
+            is_flag = True
+
+        if arg == "--app":
+            app = args[next_index]
+            skip = True
+            args = args[2:]
+        elif arg == "--remote":
+            dokku_git_remote = args[next_index]
+            skip = True
+            args = args[2:]
+        elif arg.startswith("--"):
+            if cmd_set and (not is_flag):
+                app_arg = arg
+                break
+            if arg == "--trace":
+                dokku_env['DOKKU_TRACE'] = 1
+        else:
+            if cmd_set and (not is_flag):
+                app_arg = arg
+            else:
+                cmd = arg
+                cmd_set = True
+
+        next_index += 1
+
+    dokku_remote_host = fn_dokku_host(dokku_git_remote, dokku_env['DOKKU_HOST'])
+
+    if (not dokku_remote_host) and (not cmd.startswith("remote")):
+        fn_client_help_msg()
+
+    if not app:
+        escape_host = f"dokku@{dokku_remote_host}"
+        pattern = re.compile(
+            rf"{escape_host}",
+            re.IGNORECASE | re.MULTILINE)
+        cmd_stdout, ret_code = git_rev_parse_result(dokku_git_remote)
+        if ret_code == 0:
+            if cmd_stdout and pattern.search(cmd_stdout):
+                git_dokku_rev = cmd_stdout.splitlines()[0]
+                app = git_dokku_rev.split(" ")[0].split("@")[1].split(":")[1]
+        else:
+            print(" !     This is not a git repository")
+
+    match cmd:
+        case "apps:create":
+            if not app and not app_arg:
+                app = fn_random_name()
+                counter = 0
+                ssh_command = f"ssh -p {dokku_env['DOKKU_PORT']} dokku@{dokku_remote_host} apps"
+                # while ssh -p "$DOKKU_PORT" "dokku@$DOKKU_REMOTE_HOST" apps 2>/dev/null | grep -q "$APP"; do
+                while True:
+                    if counter >= 100:
+                        print(" !     Could not reasonably generate a new app name. Try cleaning up some apps...")
+                        # ssh -p "$DOKKU_PORT" "dokku@$DOKKU_REMOTE_HOST" apps
+                        sys.exit(1)
+                    else:
+                        app = 'random_name'
+                        counter += 1
+            elif not app:
+                app = app_arg
+            """
+            # if git remote add "$DOKKU_GIT_REMOTE" "dokku@$DOKKU_REMOTE_HOST:$APP"; then
+            #   echo "-----> Dokku remote added at ${DOKKU_REMOTE_HOST} called ${DOKKU_GIT_REMOTE}"
+            #   echo "-----> Application name is ${APP}"
+            # else
+            #   echo " !     Dokku remote not added! Do you already have a dokku remote?" 1>&2
+            #   return
+            # fi
+            # ;;
+        """
+        case "apps:destroy":
+            pass
+        case "remote":
+            pass
+        case "remote:add":
+            pass
+        case "remote:list":
+            pass
+        case "remote:set":
+            pass
+        case "remote:remove":
+            pass
+        case "remote:unset":
+            pass
+
     #   case "$CMD" in
     #     apps:create)
-    #       if [[ -z "$APP" ]] && [[ -z "$APP_ARG" ]]; then
-    #         APP=$(fn-random-name)
-    #         counter=0
-    #         while ssh -p "$DOKKU_PORT" "dokku@$DOKKU_REMOTE_HOST" apps 2>/dev/null | grep -q "$APP"; do
-    #           if [[ $counter -ge 100 ]]; then
-    #             echo " !     Could not reasonably generate a new app name. Try cleaning up some apps..." 1>&2
-    #             ssh -p "$DOKKU_PORT" "dokku@$DOKKU_REMOTE_HOST" apps
-    #             exit 1
-    #           else
-    #             APP=$(random_name)
-    #             counter=$((counter + 1))
-    #           fi
-    #         done
-    #       elif [[ -z "$APP" ]]; then
-    #         APP="$APP_ARG"
-    #       fi
-    #       if git remote add "$DOKKU_GIT_REMOTE" "dokku@$DOKKU_REMOTE_HOST:$APP"; then
-    #         echo "-----> Dokku remote added at ${DOKKU_REMOTE_HOST} called ${DOKKU_GIT_REMOTE}"
-    #         echo "-----> Application name is ${APP}"
-    #       else
-    #         echo " !     Dokku remote not added! Do you already have a dokku remote?" 1>&2
-    #         return
-    #       fi
-    #       ;;
+
     #     apps:destroy)
     #       fn-is-git-repo && fn-has-dokku-remote && git remote remove "$DOKKU_GIT_REMOTE"
     #       ;;
@@ -145,46 +234,6 @@ def main():
     #     echo " !     If there was no output from Dokku, ensure your configured SSH Key can connect to the remote server" 1>&2
     #     return $ssh_exit_code
     #   }
-
-
-# set -eo pipefail
-# [[ $DOKKU_TRACE ]] && set -x
-# export DOKKU_PORT=${DOKKU_PORT:=22}
-# := 는 매개변수가 비어있거나 정의되어 있지 않은 경우 할당하는 기능
-# export DOKKU_HOST=${DOKKU_HOST:=}
-#
-# fn-random-number() {
-#   [[ -n "$1" ]] && RANGE="$1"
-#   if [[ -n "$RANGE" ]]; then
-#     number=$RANDOM
-#     let "number %= $RANGE"
-#   else
-#     number=$RANDOM
-#   fi
-#   echo $number
-# }
-#
-# fn-random-name() {
-#   local NUM1 NUM2 NUM3 UPPER_APPNAME lower_appname
-#   local MOVES=(ABLE ABNORMA AGAIN AIREXPL ANG ANGER ASAIL ATTACK AURORA AWL BAN BAND BARE BEAT BEATED BELLY BIND BITE BLOC BLOOD BODY BOOK BREATH BUMP CAST CHAM CLAMP CLAP CLAW CLEAR CLI CLIP CLOUD CONTRO CONVY COOLHIT CRASH CRY CUT DESCRI D-FIGHT DIG DITCH DIV DOZ DRE DUL DU-PIN DYE EARTH EDU EG-BOMB EGG ELEGY ELE-HIT EMBODY EMPLI ENGL ERUPT EVENS EXPLOR EYES FALL FAST F-CAR F-DANCE FEARS F-FIGHT FIGHT FIR FIRE FIREHIT FLAME FLAP FLASH FLEW FORCE FRA FREEZE FROG G-BIRD GENKISS GIFT G-KISS G-MOUSE GRADE GROW HAMMER HARD HAT HATE H-BOMB HELL-R HEMP HINT HIT HU HUNT HYPNOSI INHA IRO IRONBAR IR-WING J-GUN KEE KICK KNIF KNIFE KNOCK LEVEL LIGH LIGHHIT LIGHT LIVE L-WALL MAD MAJUS MEL MELO MESS MILK MIMI MISS MIXING MOVE MUD NI-BED NOISY NOONLI NULL N-WAVE PAT PEACE PIN PLAN PLANE POIS POL POWDE POWE POWER PRIZE PROTECT PROUD RAGE RECOR REFLAC REFREC REGR RELIV RENEW R-FIGHT RING RKICK ROCK ROUND RUS RUSH SAND SAW SCISSOR SCRA SCRIPT SEEN SERVER SHADOW SHELL SHINE SHO SIGHT SIN SMALL SMELT SMOK SNAKE SNO SNOW SOU SO-WAVE SPAR SPEC SPID S-PIN SPRA STAM STARE STEA STONE STORM STRU STRUG STUDEN SUBS SUCID SUN-LIG SUNRIS SUPLY S-WAVE TAILS TANGL TASTE TELLI THANK TONKICK TOOTH TORL TRAIN TRIKICK TUNGE VOLT WA-GUN WATCH WAVE W-BOMB WFALL WFING WHIP WHIRL WIND WOLF WOOD WOR YUJA)
-#   local NAMES=(SEED GRASS FLOWE SHAD CABR SNAKE GOLD COW GUIKI PEDAL DELAN B-FLY BIDE KEYU FORK LAP PIGE PIJIA CAML LAT BIRD BABOO VIV ABOKE PIKAQ RYE SAN BREAD LIDEL LIDE PIP PIKEX ROK JUGEN PUD BUDE ZHIB GELU GRAS FLOW LAFUL ATH BALA CORN MOLUF DESP DAKED MIMI BOLUX KODA GELUD MONK SUMOY GEDI WENDI NILEM NILE NILEC KEZI YONGL HUDE WANLI GELI GUAIL MADAQ WUCI WUCI MUJEF JELLY SICIB GELU NELUO BOLI JIALE YED YEDE CLO SCARE AOCO DEDE DEDEI BAWU JIUG BADEB BADEB HOLE BALUX GES FANT QUAR YIHE SWAB SLIPP CLU DEPOS BILIY YUANO SOME NO YELA EMPT ZECUN XIAHE BOLEL DEJI MACID XIHON XITO LUCK MENJI GELU DECI XIDE DASAJ DONGN RICUL MINXI BALIY ZENDA LUZEL HELE5 0FENB KAIL JIAND CARP JINDE LAPU MUDE YIFU LINLI SANDI HUSI JINC OUMU OUMUX CAP KUIZA PUD TIAO FRMAN CLAU SPARK DRAGO BOLIU GUAIL MIYOU MIY QIAOK BEIL MUKEI RIDED MADAM BAGEP CROC ALIGE OUDAL OUD DADA HEHE YEDEA NUXI NUXIN ROUY ALIAD STICK QIANG LAAND PIQI PI PUPI DEKE DEKEJ NADI NADIO MALI PEA ELECT FLOWE MAL MALI HUSHU NILEE YUZI POPOZ DUZI HEBA XIAN SHAN YEYEA WUY LUO KEFE HULA CROW YADEH MOW ANNAN SUONI KYLI HULU HUDEL YEHE GULAE YEHE BLU GELAN BOAT NIP POIT HELAK XINL BEAR LINB MAGEH MAGEJ WULI YIDE RIVE FISH AOGU DELIE MANTE KONMU DELU HELU HUAN HUMA DONGF JINCA HEDE DEFU LIBY JIAPA MEJI HELE BUHU MILK HABI THUN GARD DON YANGQ SANAQ BANQ LUJ PHIX SIEI EGG)
-#
-#   NUM1=$(fn-random-number ${#MOVES[@]})
-#   NUM2=$(fn-random-number ${#MOVES[@]})
-#   NUM3=$(fn-random-number ${#NAMES[@]})
-#
-#   UPPER_APPNAME="${MOVES[${NUM1}]}-${MOVES[${NUM2}]}-${NAMES[${NUM3}]}"
-#
-#   [[ "$BASH_VERSION" =~ 4.* ]] && lower_appname=${UPPER_APPNAME,,}
-#   [[ -z "$lower_appname" ]] && lower_appname=$(echo "$UPPER_APPNAME" | tr '[:upper:]' '[:lower:]')
-#   echo "$lower_appname"
-# }
-#
-# fn-client-help-msg() {
-#   echo "=====> Configure the DOKKU_HOST environment variable or run $0 from a repository with a git remote named dokku"
-#   echo "       i.e. git remote add dokku dokku@<dokku-host>:<app-name>"
-#   exit 20 # exit with specific status. only used in units tests for now
-# }
 #
 # fn-is-git-repo() {
 #   git rev-parse &>/dev/null
@@ -192,30 +241,6 @@ def main():
 #
 # fn-has-dokku-remote() {
 #   git remote show | grep -E "^${DOKKU_GIT_REMOTE}\s"
-# }
-#
-# fn-dokku-host() {
-#   declare DOKKU_GIT_REMOTE="$1" DOKKU_HOST="$2"
-#
-#   if [[ -z "$DOKKU_HOST" ]]; then
-#     if [[ -d .git ]] || git rev-parse --git-dir &>/dev/null; then
-#       DOKKU_HOST=$(git remote -v 2>/dev/null | grep -Ei "^${DOKKU_GIT_REMOTE}\s" | head -n 1 | cut -f1 -d' ' | cut -f2 -d '@' | cut -f1 -d':' 2>/dev/null || true)
-#     fi
-#   fi
-#
-#   if [[ -z "$DOKKU_HOST" ]]; then
-#     return
-#   fi
-#
-#   echo "$DOKKU_HOST"
-# }
-#
-# fn-get-remote() {
-#   git config dokku.remote 2>/dev/null || echo "dokku"
-# }
-#
-# main() {
-
 # }
 #
 # if [[ "$0" == "dokku" ]] || [[ "$0" == *dokku_client.sh ]] || [[ "$0" == $(command -v dokku) ]]; then
