@@ -2,7 +2,6 @@ import random
 import sys
 import shlex
 import os
-import re
 from functools import partial
 from subprocess import run, DEVNULL, PIPE, CalledProcessError
 
