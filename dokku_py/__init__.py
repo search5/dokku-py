@@ -50,7 +50,7 @@ def fn_dokku_host(dokku_git_remote, dokku_host):
             try:
                 result = run(
                     ["git", "remote", "-v"],
-                    stdout=DEVNULL,
+                    stdout=PIPE,
                     check=True,
                     text=True
                 )
@@ -235,7 +235,6 @@ def main():
                 exit(run(["git", "config", "--unset", "dokku.remote"]).returncode)
             exit(0)
 
-    print(app)
     commands = ["apps", "certs", "help", "ls", "nginx", "shell", "storage",
                 "trace", "version"]
     if any(command in cmd for command in commands):
@@ -259,7 +258,7 @@ def main():
         args[0:0] = ("--app", app)
 
     # print(f"ssh -o LogLevel=QUIET -p {dokku_env['DOKKU_PORT']} -t dokku@{dokku_remote_host} -- {app_arg} {' '.join(args)}")
-    ssh_args = ["-o", "LogLevel=QUIET", "-p", dokku_env['DOKKU_PORT'], "-t", f"dokku@{dokku_remote_host}", "--"]
+    ssh_args = ["-o", "LogLevel=QUIET", "-p", str(dokku_env['DOKKU_PORT']), "-t", f"dokku@{dokku_remote_host}", "--"]
     ssh_args.extend(args)
     result = run(["ssh"] + ssh_args, text=True)
     if result.returncode != 0:
